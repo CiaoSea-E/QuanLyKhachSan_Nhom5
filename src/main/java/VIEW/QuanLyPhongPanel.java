@@ -1,190 +1,235 @@
 package VIEW;
 
-import VIEW.QuanLyDatPhongPanel;
-import javax.swing.*;
-import javax.swing.table.DefaultTableModel;
+import Helper.ModernUI;
 import java.awt.*;
+import javax.swing.*;
+import javax.swing.border.EmptyBorder;
+import javax.swing.border.TitledBorder;
+import javax.swing.table.DefaultTableModel;
 
+/**
+ * Giao diện Panel Quản Lý Danh Sách Phòng.
+ * Chức năng: Hiển thị bảng phòng, Form nhập liệu, Tìm kiếm & Lọc.
+ */
 public class QuanLyPhongPanel extends JPanel {
 
-    // Khai báo các linh kiện (Components)
-    private JTextField txtSoPhong;
-    private JTextField txtTimKiem;
-    private JComboBox<String> cboLoaiPhong;
-    private JComboBox<String> cboTrangThai;
+    // ============================================================
+    // PHẦN 1: KHAI BÁO CÁC THÀNH PHẦN GIAO DIỆN (COMPONENTS)
+    // ============================================================
+
+    // --- Nhóm 1: Nhập liệu (Form) ---
+    private ModernUI.RoundedTextField txtSoPhong;
+    private JComboBox<String> cboLoaiPhong; // Chọn loại phòng
+    private JComboBox<String> cboTrangThai; // Chọn trạng thái (Trống, Đang ở...)
+
+    // --- Nhóm 2: Tìm kiếm & Lọc (Toolbar) ---
+    private ModernUI.RoundedTextField txtTimKiem;
+    private JButton btnTimKiem;
+    private JComboBox<String> cboLocLoai;      // Bộ lọc theo Loại phòng
+    private JComboBox<String> cboLocTrangThai; // Bộ lọc theo Trạng thái
+
+    // --- Nhóm 3: Bảng dữ liệu (Table) ---
     private JTable tblPhong;
     private DefaultTableModel modelPhong;
 
-    // Các nút bấm
-    private JButton btnThem;
-    private JButton btnSua;
-    private JButton btnXoa;
-    private JButton btnTimKiem;
-    private JButton btnXuatExcel;
-    private JButton btnLamMoi;
+    // --- Nhóm 4: Các nút chức năng (Actions) ---
+    private JButton btnThem, btnSua, btnXoa, btnLamMoi, btnXuatExcel;
+
+    // ============================================================
+    // PHẦN 2: KHỞI TẠO (CONSTRUCTOR & INIT)
+    // ============================================================
 
     public QuanLyPhongPanel() {
         initComponents();
+        // Lưu ý: Dữ liệu sẽ được Controller nạp vào sau khi view hiện lên
     }
 
-    // Hàm khởi tạo giao diện
+    /**
+     * Hàm khởi tạo chính: Sắp xếp toàn bộ giao diện
+     */
     private void initComponents() {
-        // --- 1. PHẦN TIÊU ĐỀ ---
-        JLabel lblTitle = new JLabel("QUẢN LÝ PHÒNG", JLabel.CENTER);
-        lblTitle.setFont(new Font("Arial", Font.BOLD, 24));
-        lblTitle.setForeground(Color.BLUE);
-        lblTitle.setBorder(BorderFactory.createEmptyBorder(10, 0, 10, 0));
+        this.setLayout(new BorderLayout());
+        this.setBackground(ModernUI.BG_COLOR);
 
-        // --- 2. PHẦN NHẬP LIỆU ---
-        JPanel pnlInput = new JPanel(new GridBagLayout());
-        pnlInput.setBorder(BorderFactory.createTitledBorder("Thông tin phòng"));
+        // B1. Khởi tạo các đối tượng (Biến, Nút, Bảng...)
+        initObjects();
+
+        // B2. Xây dựng Vùng Trên (Tiêu đề + Form + Thanh công cụ)
+        JPanel pnlTop = new JPanel();
+        pnlTop.setLayout(new BoxLayout(pnlTop, BoxLayout.Y_AXIS)); // Xếp dọc
+        pnlTop.setOpaque(false);
+        pnlTop.setBorder(new EmptyBorder(0, 20, 0, 20)); // Căn lề 2 bên
+
+        // 2.1 Tiêu đề
+        pnlTop.add(ModernUI.createHeaderPanel("QUẢN LÝ DANH SÁCH PHÒNG"));
+        pnlTop.add(Box.createVerticalStrut(15)); // Khoảng cách
+
+        // 2.2 Form nhập liệu
+        pnlTop.add(createFormLayout());
+        
+        // 2.3 Thanh công cụ (Nút bấm + Tìm kiếm)
+        pnlTop.add(createToolbarLayout());
+
+        // B3. Xây dựng Vùng Giữa (Bảng danh sách)
+        JPanel pnlTableContainer = new JPanel(new BorderLayout());
+        pnlTableContainer.setOpaque(false);
+        pnlTableContainer.setBorder(new EmptyBorder(0, 20, 20, 20)); // Căn lề dưới và 2 bên
+        
+        // Dùng Helper tạo bảng đẹp
+        pnlTableContainer.add(ModernUI.createTable(tblPhong));
+
+        // B4. Lắp ráp vào Panel chính
+        this.add(pnlTop, BorderLayout.NORTH);
+        this.add(pnlTableContainer, BorderLayout.CENTER);
+    }
+
+    /**
+     * Hàm khởi tạo chi tiết các đối tượng
+     */
+    private void initObjects() {
+        // --- 1. Khởi tạo Inputs ---
+        txtSoPhong = new ModernUI.RoundedTextField(15);
+        
+        cboLoaiPhong = new JComboBox<>(); // Dữ liệu sẽ nạp từ DB
+        cboLoaiPhong.setBackground(Color.WHITE);
+        
+        cboTrangThai = new JComboBox<>(new String[]{"Trống", "Đang ở", "Đã đặt", "Đang dọn"});
+        cboTrangThai.setBackground(Color.WHITE);
+
+        // --- 2. Khởi tạo Bộ Lọc ---
+        txtTimKiem = new ModernUI.RoundedTextField(15);
+        btnTimKiem = ModernUI.createPrimaryButton("Tìm");
+        
+        cboLocLoai = new JComboBox<>(); // Dữ liệu nạp từ DB (kèm dòng "Tất cả")
+        cboLocLoai.setBackground(Color.WHITE);
+
+        cboLocTrangThai = new JComboBox<>(new String[]{"Tất cả", "Trống", "Đang ở", "Đã đặt", "Đang dọn"});
+        cboLocTrangThai.setBackground(Color.WHITE);
+
+        // --- 3. Khởi tạo Nút bấm ---
+        btnThem = ModernUI.createGradientButton("Thêm Mới", ModernUI.GREEN_COLOR, ModernUI.GREEN_COLOR.darker());
+        btnSua  = ModernUI.createGradientButton("Cập Nhật", ModernUI.ACCENT, ModernUI.ACCENT.darker());
+        btnXoa  = ModernUI.createGradientButton("Xóa Phòng", ModernUI.RED_COLOR, ModernUI.RED_COLOR.darker());
+        btnLamMoi = ModernUI.createGradientButton("Làm Mới", Color.GRAY, Color.DARK_GRAY);
+        btnXuatExcel = ModernUI.createGradientButton("Xuất Excel", new Color(33, 115, 70), new Color(33, 115, 70).darker());
+
+        // --- 4. Khởi tạo Bảng ---
+        // Cấu trúc cột: ID (Ẩn) | Số Phòng | Loại Phòng | Giá Tiền | Trạng Thái
+        String[] columns = {"ID Ẩn", "Số Phòng", "Loại Phòng", "Giá Tiền (VNĐ)", "Trạng Thái"};
+        
+        modelPhong = new DefaultTableModel(columns, 0) {
+            @Override // Chặn không cho người dùng sửa trực tiếp trên ô
+            public boolean isCellEditable(int row, int column) {
+                return false; 
+            }
+        };
+        tblPhong = new JTable(modelPhong);
+    }
+
+    // ============================================================
+    // PHẦN 3: CÁC HÀM BỐ CỤC (LAYOUT HELPERS)
+    // ============================================================
+
+    /**
+     * Tạo giao diện Form nhập liệu (GridBagLayout)
+     */
+    private JPanel createFormLayout() {
+        JPanel pnl = new JPanel(new GridBagLayout());
+        pnl.setBackground(Color.WHITE);
+        
+        // Tạo khung viền có tiêu đề
+        pnl.setBorder(BorderFactory.createTitledBorder(
+            BorderFactory.createLineBorder(new Color(200, 200, 200)),
+            " THÔNG TIN PHÒNG ",
+            TitledBorder.DEFAULT_JUSTIFICATION,
+            TitledBorder.DEFAULT_POSITION,
+            ModernUI.FONT_BOLD,
+            ModernUI.PRIMARY
+        ));
+
         GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(5, 5, 5, 5);
+        gbc.insets = new Insets(10, 15, 10, 15); // Khoảng cách giữa các ô
         gbc.fill = GridBagConstraints.HORIZONTAL;
 
-        // Dòng 1: Số phòng & Loại phòng
-        gbc.gridx = 0;
-        gbc.gridy = 0;
-        pnlInput.add(new JLabel("Số Phòng:"), gbc);
-        gbc.gridx = 1;
-        gbc.gridy = 0;
-        txtSoPhong = new JTextField(15);
-        pnlInput.add(txtSoPhong, gbc);
+        // Dòng 1: Số Phòng + Loại Phòng
+        gbc.gridx = 0; gbc.gridy = 0; pnl.add(ModernUI.createLabel("Số Phòng:"), gbc);
+        gbc.gridx = 1; gbc.gridy = 0; pnl.add(txtSoPhong, gbc);
 
-        gbc.gridx = 2;
-        gbc.gridy = 0;
-        pnlInput.add(new JLabel("Loại Phòng:"), gbc);
-        gbc.gridx = 3;
-        gbc.gridy = 0;
-        cboLoaiPhong = new JComboBox<>(new String[]{"Phòng Đơn", "Phòng Đôi", "VIP"});
-        pnlInput.add(cboLoaiPhong, gbc);
+        gbc.gridx = 2; gbc.gridy = 0; pnl.add(ModernUI.createLabel("Loại Phòng:"), gbc);
+        gbc.gridx = 3; gbc.gridy = 0; 
+        cboLoaiPhong.setPreferredSize(new Dimension(200, 35));
+        pnl.add(cboLoaiPhong, gbc);
 
-        // Dòng 2: Trạng thái
-        gbc.gridx = 0;
-        gbc.gridy = 1;
-        pnlInput.add(new JLabel("Trạng Thái:"), gbc);
-        gbc.gridx = 1;
-        gbc.gridy = 1;
-        cboTrangThai = new JComboBox<>(new String[]{"Trống", "Đang ở", "Đã đặt", "Đang dọn"});
-        pnlInput.add(cboTrangThai, gbc);
+        // Dòng 2: Trạng Thái
+        gbc.gridx = 0; gbc.gridy = 1; pnl.add(ModernUI.createLabel("Trạng Thái:"), gbc);
+        gbc.gridx = 1; gbc.gridy = 1; 
+        cboTrangThai.setPreferredSize(new Dimension(200, 35));
+        pnl.add(cboTrangThai, gbc);
 
-        // --- 3. PHẦN NÚT BẤM CHỨC NĂNG (Dùng hàm createStyledButton) ---
-        JPanel pnlButtons = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 10));
-
-        // Gọi hàm tạo nút ở đây
-        btnThem = createStyledButton("Thêm Mới", new Color(46, 204, 113), Color.WHITE);
-        btnSua = createStyledButton("Cập Nhật", new Color(255, 193, 7), Color.BLACK);
-        btnXoa = createStyledButton("Xóa", new Color(231, 76, 60), Color.WHITE);
-        btnLamMoi = createStyledButton("Làm Mới", new Color(52, 152, 219), Color.WHITE);
-        btnXuatExcel = createStyledButton("Xuất Excel", new Color(149, 165, 166), Color.WHITE);
-
-        pnlButtons.add(btnThem);
-        pnlButtons.add(btnSua);
-        pnlButtons.add(btnXoa);
-        pnlButtons.add(btnLamMoi);
-        pnlButtons.add(btnXuatExcel);
-
-        // --- 4. PHẦN TÌM KIẾM ---
-        JPanel pnlSearch = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        pnlSearch.add(new JLabel("Tìm kiếm (Số phòng): "));
-        txtTimKiem = new JTextField(20);
-        btnTimKiem = new JButton("Tìm"); // Nút tìm kiếm để mặc định hoặc style tùy bạn
-        pnlSearch.add(txtTimKiem);
-        pnlSearch.add(btnTimKiem);
-
-        // --- GOM NHÓM PHẦN ĐẦU (Header) ---
-        JPanel pnlHeader = new JPanel();
-        pnlHeader.setLayout(new BoxLayout(pnlHeader, BoxLayout.Y_AXIS));
-        pnlHeader.add(lblTitle);     // Tiêu đề trên cùng
-        pnlHeader.add(pnlInput);     // Form nhập
-        pnlHeader.add(pnlButtons);   // Nút bấm
-        pnlHeader.add(pnlSearch);    // Thanh tìm kiếm
-
-        // --- 5. PHẦN BẢNG DANH SÁCH ---
-        String[] columns = {"Mã Phòng", "Số Phòng", "Mã Loại", "Trạng Thái"};
-        modelPhong = new DefaultTableModel(columns, 0);
-        tblPhong = new JTable(modelPhong);
-        tblPhong.setRowHeight(25);
-        JScrollPane scrollPane = new JScrollPane(tblPhong);
-        scrollPane.setBorder(BorderFactory.createTitledBorder("Danh sách phòng"));
-
-        // --- LẮP RÁP VÀO PANEL CHÍNH (Sửa lại Layout cho đẹp) ---
-        this.setLayout(new BorderLayout());
-        this.add(pnlHeader, BorderLayout.NORTH);  // Đẩy hết phần nhập liệu lên trên
-        this.add(scrollPane, BorderLayout.CENTER); // Bảng nằm giữa, tự giãn full màn hình
+        return pnl;
     }
 
-    // =================================================================
-    // KHU VỰC HÀM PHỤ (HELPER METHODS)
-    // =================================================================
-    // Đây là hàm bị thiếu khiến bạn gặp lỗi "createStyledButton can't found"
-    private JButton createStyledButton(String text, Color bg, Color fg) {
-        JButton btn = new JButton(text);
-        btn.setBackground(bg);
-        btn.setForeground(fg);
-        btn.setFont(new Font("Arial", Font.BOLD, 12));
+    /**
+     * Tạo giao diện Thanh công cụ (Toolbar)
+     */
+    private JPanel createToolbarLayout() {
+        JPanel pnl = new JPanel(new BorderLayout());
+        pnl.setBackground(Color.WHITE);
+        pnl.setBorder(new EmptyBorder(15, 0, 15, 0));
 
-        // Quan trọng để hiện màu trên nền tảng Java Swing cũ/mới khác nhau
-        btn.setOpaque(true);
-        btn.setBorderPainted(false);
-        btn.setFocusPainted(false);
-        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        // Phần Trái: Các nút chức năng (Thêm, Sửa, Xóa...)
+        JPanel pnlLeft = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
+        pnlLeft.setOpaque(false);
+        pnlLeft.add(btnThem);
+        pnlLeft.add(btnSua);
+        pnlLeft.add(btnXoa);
+        pnlLeft.add(btnLamMoi);
+        pnlLeft.add(btnXuatExcel);
 
-        return btn;
+        // Phần Phải: Bộ Lọc & Tìm kiếm
+        JPanel pnlRight = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
+        pnlRight.setOpaque(false);
+        
+        // ComboBox Lọc
+        cboLocLoai.setPreferredSize(new Dimension(110, 35));
+        pnlRight.add(cboLocLoai);
+        
+        cboLocTrangThai.setPreferredSize(new Dimension(100, 35));
+        pnlRight.add(cboLocTrangThai);
+
+        // Ô Tìm kiếm
+        pnlRight.add(ModernUI.createLabel("Tìm số:"));
+        txtTimKiem.setPreferredSize(new Dimension(100, 35));
+        pnlRight.add(txtTimKiem);
+        pnlRight.add(btnTimKiem);
+
+        pnl.add(pnlLeft, BorderLayout.CENTER);
+        pnl.add(pnlRight, BorderLayout.EAST);
+        return pnl;
     }
 
-    // =================================================================
-    // KHU VỰC GETTER
-    // =================================================================
-    public JTextField getTxtSoPhong() {
-        return txtSoPhong;
-    }
-
-    public JTextField getTxtTimKiem() {
-        return txtTimKiem;
-    }
-
-    public JComboBox<String> getCboLoaiPhong() {
-        return cboLoaiPhong;
-    }
-
-    public JComboBox<String> getCboTrangThai() {
-        return cboTrangThai;
-    }
-
-    public JButton getBtnThem() {
-        return btnThem;
-    }
-
-    public JButton getBtnSua() {
-        return btnSua;
-    }
-
-    public JButton getBtnXoa() {
-        return btnXoa;
-    }
-
-    public JButton getBtnTimKiem() {
-        return btnTimKiem;
-    }
-
-    public JButton getBtnXuatExcel() {
-        return btnXuatExcel;
-    }
-
-    public JButton getBtnLamMoi() {
-        return btnLamMoi;
-    }
-
-    public JTable getTblPhong() {
-        return tblPhong;
-    }
-
-    public DefaultTableModel getModelPhong() {
-        return modelPhong;
-    }
-
-    public void showMessage(String message) {
-        JOptionPane.showMessageDialog(this, message);
-    }
+    // ============================================================
+    // PHẦN 4: GETTERS (ĐỂ CONTROLLER TRUY CẬP DỮ LIỆU)
+    // ============================================================
+    
+    public JTextField getTxtSoPhong() { return txtSoPhong; }
+    public JTextField getTxtTimKiem() { return txtTimKiem; }
+    
+    // ComboBox
+    public JComboBox<String> getCboLoaiPhong() { return cboLoaiPhong; }
+    public JComboBox<String> getCboTrangThai() { return cboTrangThai; }
+    public JComboBox<String> getCboLocLoai() { return cboLocLoai; }
+    public JComboBox<String> getCboLocTrangThai() { return cboLocTrangThai; }
+    
+    // Buttons
+    public JButton getBtnThem() { return btnThem; }
+    public JButton getBtnSua() { return btnSua; }
+    public JButton getBtnXoa() { return btnXoa; }
+    public JButton getBtnTimKiem() { return btnTimKiem; }
+    public JButton getBtnXuatExcel() { return btnXuatExcel; }
+    public JButton getBtnLamMoi() { return btnLamMoi; }
+    
+    // Table
+    public JTable getTblPhong() { return tblPhong; }
+    public DefaultTableModel getModelPhong() { return modelPhong; }
 }

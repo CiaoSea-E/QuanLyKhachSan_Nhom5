@@ -1,10 +1,11 @@
 package VIEW;
 
 import DAO.DatPhongDAO;
+import Helper.ModernUI; 
 import java.awt.*;
 import java.util.List;
 import javax.swing.*;
-import javax.swing.table.DefaultTableCellRenderer;
+import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableModel;
 
 public class QuanLyDatPhongPanel extends JPanel {
@@ -13,13 +14,14 @@ public class QuanLyDatPhongPanel extends JPanel {
     private DefaultTableModel model;
     private DatPhongDAO dao;
     
-    // Khai báo các nút chức năng
+    // Nút chức năng
     private JButton btnTaoMoi, btnSua, btnHuyDon, btnXuatExcel, btnLamMoi;
     private JButton btnNhanPhong, btnTraPhong;
-    private JButton btnTimNgay; // <--- NÚT TÌM MỚI
     
+    // Tìm kiếm
+    private JButton btnTimNgayIn, btnTimNgayOut;
     private JComboBox<String> cboTrangThai; 
-    private JSpinner spinNgayTim; // <--- Ô CHỌN NGÀY MỚI
+    private JSpinner spinNgayIn, spinNgayOut;
 
     public QuanLyDatPhongPanel() {
         dao = new DatPhongDAO();
@@ -29,120 +31,139 @@ public class QuanLyDatPhongPanel extends JPanel {
 
     private void initComponents() {
         this.setLayout(new BorderLayout());
+        this.setBackground(ModernUI.BG_COLOR);
 
-        // 1. TIÊU ĐỀ
-        JLabel lblTitle = new JLabel("QUẢN LÝ DANH SÁCH ĐẶT PHÒNG", JLabel.CENTER);
-        lblTitle.setFont(new Font("Arial", Font.BOLD, 22));
-        lblTitle.setForeground(new Color(41, 128, 185));
-        lblTitle.setBorder(BorderFactory.createEmptyBorder(10, 0, 10, 0));
-        this.add(lblTitle, BorderLayout.NORTH);
+        initObjects();
 
-        // 2. THANH CÔNG CỤ (CHIA LÀM 2 DÒNG)
-        JPanel pnlMainToolbar = new JPanel(new GridLayout(2, 1, 0, 0)); 
+        // PHẦN TRÊN: HEADER + TOOLBAR
+        JPanel pnlTop = new JPanel();
+        pnlTop.setLayout(new BoxLayout(pnlTop, BoxLayout.Y_AXIS));
+        pnlTop.setOpaque(false);
+        pnlTop.setBorder(new EmptyBorder(0, 20, 0, 20));
+
+        pnlTop.add(ModernUI.createHeaderPanel("QUẢN LÝ DANH SÁCH ĐẶT PHÒNG"));
+        pnlTop.add(Box.createVerticalStrut(15));
         
-        // --- DÒNG 1: CÁC NÚT CHỨC NĂNG CHÍNH ---
-        JPanel pnlActions = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5));
-        pnlActions.setBackground(new Color(245, 245, 245));
+        // Add Toolbar đã được sắp xếp lại
+        pnlTop.add(createToolbarPanel());
 
-        btnTaoMoi = new JButton(" + Tạo Mới ");
-        setupButton(btnTaoMoi, new Color(39, 174, 96));
-
-        btnSua = new JButton(" Sửa Đơn ");
-        setupButton(btnSua, new Color(243, 156, 18)); 
-
-        btnHuyDon = new JButton(" Hủy Đơn ");
-        setupButton(btnHuyDon, new Color(231, 76, 60));
+        // PHẦN GIỮA: BẢNG DỮ LIỆU
+        JPanel pnlTableContainer = new JPanel(new BorderLayout());
+        pnlTableContainer.setOpaque(false);
+        pnlTableContainer.setBorder(new EmptyBorder(0, 20, 20, 20));
         
-        btnNhanPhong = new JButton(" Nhận Phòng ");
-        setupButton(btnNhanPhong, new Color(41, 128, 185));
+        JScrollPane scroll = ModernUI.createTable(tblDatPhong);
+        pnlTableContainer.add(scroll);
 
-        btnTraPhong = new JButton(" Trả Phòng ");
-        setupButton(btnTraPhong, new Color(155, 89, 182)); 
+        this.add(pnlTop, BorderLayout.NORTH);
+        this.add(pnlTableContainer, BorderLayout.CENTER);
+    }
 
-        btnXuatExcel = new JButton(" Xuất Excel ");
-        setupButton(btnXuatExcel, new Color(46, 204, 113));
+    private void initObjects() {
+        // --- NHÓM 1: QUẢN LÝ ĐƠN (Thêm, Sửa, Hủy) ---
+        btnTaoMoi = ModernUI.createGradientButton("+ Tạo Mới", ModernUI.GREEN_COLOR, ModernUI.GREEN_COLOR.darker());
+        btnSua = ModernUI.createGradientButton("Sửa Đơn", ModernUI.ACCENT, ModernUI.ACCENT.darker());
+        btnHuyDon = ModernUI.createGradientButton("Hủy Đơn", ModernUI.RED_COLOR, ModernUI.RED_COLOR.darker());
+        
+        // --- NHÓM 2: QUY TRÌNH (Nhận, Trả) ---
+        // Chỉnh màu sắc riêng cho dễ nhận diện
+        btnNhanPhong = new ModernUI.ModernButton("Check-In", new Color(41, 128, 185), new Color(41, 128, 185).darker());
+        btnTraPhong = new ModernUI.ModernButton("Check-Out", new Color(142, 68, 173), new Color(142, 68, 173).darker());
+        btnNhanPhong.setPreferredSize(new Dimension(100, 35));
+        btnTraPhong.setPreferredSize(new Dimension(100, 35));
 
+        // --- NHÓM 3: TIỆN ÍCH ---
+        btnXuatExcel = ModernUI.createGradientButton("Xuất Excel", new Color(33, 115, 70), new Color(33, 115, 70).darker());
+        
+        // --- BỘ LỌC & TÌM KIẾM ---
+        String[] trangThai = {"Tất cả", "Đã đặt", "Đang ở", "Đã trả", "Đã hủy"};
+        cboTrangThai = new JComboBox<>(trangThai);
+        cboTrangThai.setBackground(Color.WHITE);
+        cboTrangThai.setPreferredSize(new Dimension(110, 35));
+
+        spinNgayIn = new JSpinner(new SpinnerDateModel());
+        spinNgayIn.setEditor(new JSpinner.DateEditor(spinNgayIn, "dd/MM/yyyy"));
+        spinNgayIn.setPreferredSize(new Dimension(110, 35));
+        btnTimNgayIn = ModernUI.createPrimaryButton("Tìm");
+        btnTimNgayIn.setPreferredSize(new Dimension(60, 35)); // Nút tìm nhỏ gọn
+        
+        spinNgayOut = new JSpinner(new SpinnerDateModel());
+        spinNgayOut.setEditor(new JSpinner.DateEditor(spinNgayOut, "dd/MM/yyyy"));
+        spinNgayOut.setPreferredSize(new Dimension(110, 35));
+        btnTimNgayOut = ModernUI.createPrimaryButton("Tìm");
+        btnTimNgayOut.setPreferredSize(new Dimension(60, 35));
+
+        // [FIX] Tăng kích thước nút Refresh để không bị mất chữ
+        btnLamMoi = new ModernUI.ModernButton("Làm Mới", Color.GRAY, Color.DARK_GRAY);
+        btnLamMoi.setPreferredSize(new Dimension(100, 35)); 
+
+        // --- BẢNG ---
+        String[] columns = {"Mã Phiếu", "Khách Hàng", "Phòng", "Ngày Check-In", "Ngày Check-Out", "Trạng Thái"};
+        model = new DefaultTableModel(columns, 0) {
+            @Override public boolean isCellEditable(int row, int column) { return false; }
+        };
+        tblDatPhong = new JTable(model);
+        
+        // [FIX] Set độ rộng cột để hiển thị đủ ngày giờ
+        tblDatPhong.getColumnModel().getColumn(0).setPreferredWidth(60);  // Mã
+        tblDatPhong.getColumnModel().getColumn(1).setPreferredWidth(150); // Tên
+        tblDatPhong.getColumnModel().getColumn(2).setPreferredWidth(60);  // Phòng
+        tblDatPhong.getColumnModel().getColumn(3).setPreferredWidth(140); // Ngày In
+        tblDatPhong.getColumnModel().getColumn(4).setPreferredWidth(140); // Ngày Out
+    }
+
+    private JPanel createToolbarPanel() {
+        // Sử dụng GridBagLayout hoặc BoxLayout để kiểm soát tốt hơn
+        // Ở đây dùng JPanel lồng nhau để chia khu vực
+        JPanel pnlMain = new JPanel(new BorderLayout(10, 10)); 
+        pnlMain.setOpaque(false);
+        pnlMain.setBorder(new EmptyBorder(0, 0, 15, 0));
+
+        // --- DÒNG 1: CÁC NÚT THAO TÁC (Action Buttons) ---
+        JPanel pnlActions = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
+        pnlActions.setOpaque(false);
+        
+        // Nhóm CRUD
         pnlActions.add(btnTaoMoi);
         pnlActions.add(btnSua);
         pnlActions.add(btnHuyDon);
-        pnlActions.add(Box.createHorizontalStrut(10)); 
+        
+        // Vách ngăn
+        pnlActions.add(new JSeparator(SwingConstants.VERTICAL));
+        
+        // Nhóm Quy trình
         pnlActions.add(btnNhanPhong);
         pnlActions.add(btnTraPhong);
-        pnlActions.add(Box.createHorizontalStrut(10));
+        
+        // Nút Excel dạt sang phải (Dùng panel riêng nếu muốn, hoặc để chung)
+        pnlActions.add(Box.createHorizontalStrut(20));
         pnlActions.add(btnXuatExcel);
 
-        // --- DÒNG 2: BỘ LỌC VÀ TÌM KIẾM NGÀY ---
-        JPanel pnlFilter = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5));
-        pnlFilter.setBackground(new Color(245, 245, 245));
+        // --- DÒNG 2: BỘ LỌC (Filters) ---
+        JPanel pnlFilters = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
+        pnlFilters.setOpaque(false);
         
-        // [CŨ] Lọc trạng thái
-        JLabel lblLoc = new JLabel("Lọc trạng thái:");
-        lblLoc.setFont(new Font("Arial", Font.BOLD, 14));
-        String[] trangThai = {"Tất cả", "Đã đặt", "Đang ở", "Đã trả", "Đã hủy"};
-        cboTrangThai = new JComboBox<>(trangThai);
-        cboTrangThai.setPreferredSize(new Dimension(120, 30));
-        cboTrangThai.setFont(new Font("Arial", Font.PLAIN, 13));
-
-        // [MỚI] Tìm theo ngày
-        JLabel lblNgay = new JLabel(" |  Ngày đến:");
-        lblNgay.setFont(new Font("Arial", Font.BOLD, 14));
+        pnlFilters.add(ModernUI.createLabel("Trạng thái:"));
+        pnlFilters.add(cboTrangThai);
         
-        spinNgayTim = new JSpinner(new SpinnerDateModel());
-        spinNgayTim.setEditor(new JSpinner.DateEditor(spinNgayTim, "dd/MM/yyyy")); // Định dạng ngày Việt Nam
-        spinNgayTim.setPreferredSize(new Dimension(120, 30));
-        spinNgayTim.setFont(new Font("Arial", Font.PLAIN, 13));
+        pnlFilters.add(Box.createHorizontalStrut(15));
+        pnlFilters.add(ModernUI.createLabel("Ngày Đến:"));
+        pnlFilters.add(spinNgayIn);
+        pnlFilters.add(btnTimNgayIn);
         
-        btnTimNgay = new JButton("Tìm");
-        setupButton(btnTimNgay, new Color(52, 152, 219)); // Màu xanh dương
-        btnTimNgay.setPreferredSize(new Dimension(70, 30));
-
-        btnLamMoi = new JButton("Refresh");
-        setupButton(btnLamMoi, Color.WHITE);
-        btnLamMoi.setForeground(Color.BLACK);
-
-        // Add vào dòng 2
-        pnlFilter.add(lblLoc);
-        pnlFilter.add(cboTrangThai);
+        pnlFilters.add(Box.createHorizontalStrut(15));
+        pnlFilters.add(ModernUI.createLabel("Ngày Đi:"));
+        pnlFilters.add(spinNgayOut);
+        pnlFilters.add(btnTimNgayOut);
         
-        pnlFilter.add(lblNgay);      // Label Ngày
-        pnlFilter.add(spinNgayTim);  // Ô chọn ngày
-        pnlFilter.add(btnTimNgay);   // Nút tìm
+        pnlFilters.add(Box.createHorizontalStrut(20));
+        pnlFilters.add(btnLamMoi);
+
+        // Add vào Panel chính
+        pnlMain.add(pnlActions, BorderLayout.NORTH);
+        pnlMain.add(pnlFilters, BorderLayout.CENTER);
         
-        pnlFilter.add(Box.createHorizontalStrut(20));
-        pnlFilter.add(btnLamMoi);
-        
-        pnlMainToolbar.add(pnlActions);
-        pnlMainToolbar.add(pnlFilter);
-
-        // 3. BẢNG DANH SÁCH
-        String[] columns = {"Mã Phiếu", "Khách Hàng", "Phòng", "Ngày Check-In", "Ngày Check-Out", "Trạng Thái"};
-        model = new DefaultTableModel(columns, 0) {
-            @Override
-            public boolean isCellEditable(int row, int column) {
-                return false;
-            }
-        };
-
-        tblDatPhong = new JTable(model);
-        tblDatPhong.setRowHeight(30);
-        tblDatPhong.setFont(new Font("Arial", Font.PLAIN, 14));
-
-        DefaultTableCellRenderer headerRenderer = new DefaultTableCellRenderer();
-        headerRenderer.setBackground(new Color(52, 152, 219));
-        headerRenderer.setForeground(Color.WHITE);
-        headerRenderer.setFont(new Font("Arial", Font.BOLD, 14));
-        
-        for (int i = 0; i < tblDatPhong.getColumnModel().getColumnCount(); i++) {
-            tblDatPhong.getColumnModel().getColumn(i).setHeaderRenderer(headerRenderer);
-        }
-
-        JScrollPane scrollPane = new JScrollPane(tblDatPhong);
-
-        JPanel pnlCenter = new JPanel(new BorderLayout());
-        pnlCenter.add(pnlMainToolbar, BorderLayout.NORTH);
-        pnlCenter.add(scrollPane, BorderLayout.CENTER);
-
-        this.add(pnlCenter, BorderLayout.CENTER);
+        return pnlMain;
     }
 
     public void loadData() {
@@ -151,17 +172,6 @@ public class QuanLyDatPhongPanel extends JPanel {
         for (String[] row : list) {
             model.addRow(row);
         }
-    }
-
-    private void setupButton(JButton btn, Color bg) {
-        btn.setFont(new Font("Arial", Font.BOLD, 13));
-        btn.setBackground(bg);
-        btn.setForeground(Color.WHITE);
-        btn.setOpaque(true);
-        btn.setBorderPainted(false);
-        btn.setFocusPainted(false);
-        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        btn.setMargin(new Insets(5, 10, 5, 10)); 
     }
 
     // Getters
@@ -174,6 +184,10 @@ public class QuanLyDatPhongPanel extends JPanel {
     public JComboBox<String> getCboTrangThai() { return cboTrangThai; }
     public JButton getBtnNhanPhong() { return btnNhanPhong; } 
     public JButton getBtnTraPhong() { return btnTraPhong; } 
-    public JButton getBtnTimNgay() { return btnTimNgay; }
-    public java.util.Date getNgayTim() { return (java.util.Date) spinNgayTim.getValue(); }
+    
+    public JButton getBtnTimNgayIn() { return btnTimNgayIn; }
+    public java.util.Date getNgayIn() { return (java.util.Date) spinNgayIn.getValue(); }
+    
+    public JButton getBtnTimNgayOut() { return btnTimNgayOut; } 
+    public java.util.Date getNgayOut() { return (java.util.Date) spinNgayOut.getValue(); }
 }

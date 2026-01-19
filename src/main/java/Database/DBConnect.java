@@ -27,9 +27,4 @@ public class DBConnect {
         }
         return conn;
     }
-    
-    // Hàm main để chạy thử ngay lập tức
-    public static void main(String[] args) {
-        getConnection();
-    }
 }

@@ -1,116 +1,135 @@
 package VIEW;
 
+import Helper.MainFrameUI;
 import java.awt.*;
 import javax.swing.*;
-import VIEW.QuanLyKhuyenMaiPanel;
+
 public class MainFrame extends JFrame {
 
-    // Khai báo các thành phần giao diện
-    private JPanel pnlMenu;
     private JPanel pnlContent;
     private CardLayout cardLayout;
 
-    // Các nút trên Menu
-    private JButton btnTrangChu; // (Optional)
-    private JButton btnQuanLyPhong;
-    private JButton btnQuanLyDatPhong;
-    private JButton btnQuanLyKhachHang; // (Chờ phát triển sau)
-    private JButton btnThongKe;         // (Chờ phát triển sau)
-    private JButton btnDangXuat;
-    private JButton btnKhuyenMai;
+    // Menu Buttons
+    private MainFrameUI.MenuButton btnTrangChu, btnPhong, btnDatPhong, btnKhuyenMai, 
+                                   btnKhachHang, btnThongKe, btnDangXuat;
 
-    // Các Panel chức năng (View con)
+    // View Panels (Khai báo các màn hình con)
     private QuanLyPhongPanel pnlPhong;
     private QuanLyDatPhongPanel pnlDatPhong;
-    private QuanLyKhuyenMaiPanel pnlKhuyenMai;
+    private QuanLyKhuyenMaiPanel pnlKhuyenMai; // <--- 1. KHAI BÁO THÊM Ở ĐÂY
+
     public MainFrame() {
         initGUI();
     }
 
     private void initGUI() {
-        // 1. Cấu hình cửa sổ chính
-        this.setTitle("PHẦN MỀM QUẢN LÝ KHÁCH SẠN - NHÓM 5");
-        this.setSize(1200, 750);
-        this.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        this.setLocationRelativeTo(null);
-        this.setLayout(new BorderLayout());
+        setTitle("LUXURY HOTEL MANAGER - TEAM 5");
+        setSize(1350, 800);
+        setLocationRelativeTo(null);
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setLayout(new BorderLayout());
 
-        // 2. TẠO MENU BÊN TRÁI (SIDEBAR)
-        pnlMenu = new JPanel();
-        pnlMenu.setBackground(new Color(44, 62, 80)); // Màu xanh đen
-        pnlMenu.setLayout(new GridLayout(10, 1, 0, 10)); // 10 dòng, cách nhau 10px
-        pnlMenu.setPreferredSize(new Dimension(250, 0));
-        pnlMenu.setBorder(BorderFactory.createEmptyBorder(20, 10, 20, 10));
+        add(createSidebar(), BorderLayout.WEST);
+        add(createContent(), BorderLayout.CENTER);
+        
+        // Mặc định chọn tab Phòng
+        MainFrameUI.setSelected(btnPhong);
+    }
 
-        // Header Menu
-        JLabel lblHeader = new JLabel("MENU CHÍNH", JLabel.CENTER);
-        lblHeader.setForeground(Color.WHITE);
-        lblHeader.setFont(new Font("Arial", Font.BOLD, 22));
-        pnlMenu.add(lblHeader);
+    private JPanel createSidebar() {
+        MainFrameUI.SidebarPanel pnl = new MainFrameUI.SidebarPanel();
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        gbc.insets = new Insets(0, 0, 0, 0);
 
-        // Tạo các nút
-        btnQuanLyPhong = createMenuButton("Quản Lý Phòng");
-        btnQuanLyDatPhong = createMenuButton("Quản Lý Đặt Phòng");
-        btnQuanLyKhachHang = createMenuButton("Quản Lý Khách Hàng");
-        btnThongKe = createMenuButton("Báo Cáo Thống Kê");
-        btnKhuyenMai = createMenuButton("Quản Lý Khuyến Mãi");
-        btnDangXuat = createMenuButton("Đăng Xuất");
-        btnDangXuat.setBackground(new Color(192, 57, 43));
+        // Logo
+        gbc.gridy = 0; gbc.weighty = 0; gbc.anchor = GridBagConstraints.NORTH;
+        pnl.add(MainFrameUI.createLogo(), gbc);
 
-        // Add nút vào Menu
-        pnlMenu.add(btnQuanLyPhong);
-        pnlMenu.add(btnQuanLyDatPhong);
-        pnlMenu.add(btnQuanLyKhachHang);
-        pnlMenu.add(btnThongKe);
-        pnlMenu.add(Box.createVerticalGlue()); // Khoảng trắng đệm
-        pnlMenu.add(btnDangXuat);
-        pnlMenu.add(btnKhuyenMai);
+        // Menu List
+        JPanel pnlList = new JPanel(new GridLayout(0, 1, 0, 8));
+        pnlList.setOpaque(false);
 
-        this.add(pnlMenu, BorderLayout.WEST);
+        btnTrangChu  = new MainFrameUI.MenuButton("🏠", "Trang Chủ");
+        btnPhong     = new MainFrameUI.MenuButton("🛏", "Quản Lý Phòng");
+        btnDatPhong  = new MainFrameUI.MenuButton("📅", "Đặt Phòng");
+        btnKhuyenMai = new MainFrameUI.MenuButton("🎁", "Khuyến Mãi");
+        btnKhachHang = new MainFrameUI.MenuButton("👥", "Khách Hàng");
+        btnThongKe   = new MainFrameUI.MenuButton("📊", "Thống Kê");
 
-        // 3. TẠO KHUNG HIỂN THỊ CHÍNH (CONTENT - CARD LAYOUT)
-        cardLayout = new CardLayout();
-        pnlContent = new JPanel(cardLayout);
+        // Gắn sự kiện chuyển trang nội bộ (để View tự xử lý hiển thị tab)
+        setupEvent(btnTrangChu, "CARD_HOME");
+        setupEvent(btnPhong, "CARD_PHONG");
+        setupEvent(btnDatPhong, "CARD_DATPHONG");
+        setupEvent(btnKhuyenMai, "CARD_KHUYENMAI");
+        setupEvent(btnKhachHang, "CARD_KHACHHANG");
+        setupEvent(btnThongKe, "CARD_THONGKE");
 
-        // Khởi tạo các View con (Chưa gắn Controller, để MainController làm việc đó)
+        pnlList.add(btnTrangChu);
+        pnlList.add(btnPhong);
+        pnlList.add(btnDatPhong);
+        pnlList.add(btnKhuyenMai);
+        pnlList.add(btnKhachHang);
+        pnlList.add(btnThongKe);
+
+        gbc.gridy = 1; gbc.weighty = 1.0; 
+        pnl.add(pnlList, gbc);
+
+        // Logout
+        btnDangXuat = new MainFrameUI.MenuButton("🚪", "Đăng Xuất");
+        btnDangXuat.setForeground(new Color(255, 100, 100));
+        btnDangXuat.addActionListener(e -> System.exit(0));
+        
+        gbc.gridy = 2; gbc.weighty = 0; gbc.anchor = GridBagConstraints.SOUTH;
+        gbc.insets = new Insets(0, 0, 30, 0);
+        pnl.add(btnDangXuat, gbc);
+
+        return pnl;
+    }
+
+    private JPanel createContent() {
+        pnlContent = new JPanel(new CardLayout());
+        cardLayout = (CardLayout) pnlContent.getLayout();
+        pnlContent.setBackground(new Color(245, 247, 250));
+
+        // Khởi tạo các Panel con
         pnlPhong = new QuanLyPhongPanel();
         pnlDatPhong = new QuanLyDatPhongPanel();
-        pnlKhuyenMai = new QuanLyKhuyenMaiPanel();
+        pnlKhuyenMai = new QuanLyKhuyenMaiPanel(); // <--- 2. KHỞI TẠO PANEL KHUYẾN MÃI
 
-        // Thêm vào CardLayout với tên định danh
+        // Thêm vào CardLayout
         pnlContent.add(pnlPhong, "CARD_PHONG");
         pnlContent.add(pnlDatPhong, "CARD_DATPHONG");
-        pnlContent.add(pnlKhuyenMai, "CARD_KHUYENMAI");
+        pnlContent.add(pnlKhuyenMai, "CARD_KHUYENMAI"); // <--- 3. THÊM VÀO CARDLAYOUT (Thay thế new JPanel cũ)
         
-        // Mặc định hiện cái nào trước? -> Phòng
-        cardLayout.show(pnlContent, "CARD_PHONG");
+        pnlContent.add(new JPanel(), "CARD_HOME");
+        pnlContent.add(new JPanel(), "CARD_KHACHHANG");
+        pnlContent.add(new JPanel(), "CARD_THONGKE");
 
-        this.add(pnlContent, BorderLayout.CENTER);
+        return pnlContent;
     }
 
-    // Hàm tạo nút Menu cho đẹp
-    private JButton createMenuButton(String text) {
-        JButton btn = new JButton(text);
-        btn.setFont(new Font("Arial", Font.BOLD, 14));
-        btn.setBackground(new Color(52, 152, 219)); // Màu xanh dương
-        btn.setForeground(Color.WHITE);
-        btn.setFocusPainted(false);
-        btn.setBorderPainted(false);
-        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        return btn;
+    private void setupEvent(JButton btn, String cardName) {
+        btn.addActionListener(e -> {
+            MainFrameUI.setSelected(btn);
+            cardLayout.show(pnlContent, cardName);
+            
+            // Reload dữ liệu khi chuyển tab (nếu cần)
+            if(cardName.equals("CARD_DATPHONG")) pnlDatPhong.loadData();
+            // if(cardName.equals("CARD_PHONG")) pnlPhong.loadData();
+        });
     }
 
-    // === CÁC GETTER ĐỂ MAIN CONTROLLER SỬ DỤNG ===
-    
-    public JButton getBtnQuanLyPhong() { return btnQuanLyPhong; }
-    public JButton getBtnQuanLyDatPhong() { return btnQuanLyDatPhong; }
-    public JButton getBtnDangXuat() { return btnDangXuat; }
-    
-    public JPanel getPnlContent() { return pnlContent; }
+    // --- GETTER ---
     public CardLayout getCardLayout() { return cardLayout; }
+    public JPanel getPnlContent() { return pnlContent; }
+
+    public JButton getBtnQuanLyPhong() { return btnPhong; }
+    public JButton getBtnQuanLyDatPhong() { return btnDatPhong; }
+    public JButton getBtnKhuyenMai() { return btnKhuyenMai; }
+    public JButton getBtnDangXuat() { return btnDangXuat; }
     
     public QuanLyPhongPanel getPnlPhong() { return pnlPhong; }
     public QuanLyDatPhongPanel getPnlDatPhong() { return pnlDatPhong; }
-    public JButton getBtnKhuyenMai() { return btnKhuyenMai; }
-    public QuanLyKhuyenMaiPanel getPnlKhuyenMai() { return pnlKhuyenMai; }
+    public QuanLyKhuyenMaiPanel getPnlKhuyenMai() { return pnlKhuyenMai; } // <--- 4. THÊM GETTER NÀY
 }

@@ -6,42 +6,69 @@ import VIEW.DialogDatPhong;
 import java.util.List;
 import javax.swing.JOptionPane;
 
+/**
+ * Controller xử lý logic cho màn hình Dialog Đặt Phòng (Thêm mới / Sửa)
+ * Nhiệm vụ:
+ * 1. Load dữ liệu loại phòng, phòng trống.
+ * 2. Tìm kiếm hoặc thêm mới khách hàng tự động.
+ * 3. Xử lý nghiệp vụ Đặt phòng (Insert) hoặc Cập nhật đơn (Update).
+ */
 public class DatPhongController {
     
     private DialogDatPhong view;
     
-    // Khai báo các DAO
-    private KhachHangDAO khDao = new KhachHangDAO();
-    private LoaiPhongDAO lpDao = new LoaiPhongDAO();
-    private PhongDAO pDao = new PhongDAO();
-    private DatPhongDAO dpDao = new DatPhongDAO();
+    // --- KHAI BÁO CÁC DAO (DATA ACCESS OBJECT) ---
+    private KhachHangDAO khDao;
+    private LoaiPhongDAO lpDao;
+    private PhongDAO pDao;
+    private DatPhongDAO dpDao;
 
     public DatPhongController(DialogDatPhong view) {
         this.view = view;
-        initEvents();       // Gắn sự kiện
-        loadDataCombobox(); // Load dữ liệu ban đầu
+        
+        // Khởi tạo các DAO
+        this.khDao = new KhachHangDAO();
+        this.lpDao = new LoaiPhongDAO();
+        this.pDao = new PhongDAO();
+        this.dpDao = new DatPhongDAO();
+
+        // 1. Gắn sự kiện cho các nút bấm
+        initEvents();       
+        
+        // 2. Tải dữ liệu ban đầu (Danh sách loại phòng)
+        loadDataCombobox(); 
     }
 
+    // ============================================================
+    // PHẦN 1: KHỞI TẠO SỰ KIỆN (EVENTS)
+    // ============================================================
     private void initEvents() {
-        // 1. Sự kiện Tìm khách
+        // Sự kiện: Tìm khách hàng khi nhập CCCD hoặc bấm nút Tìm
         view.getBtnTimKhach().addActionListener(e -> timKhachHang());
         view.getTxtCCCD().addActionListener(e -> timKhachHang()); 
 
-        // 2. Sự kiện Chọn Loại Phòng
+        // Sự kiện: Khi chọn Loại phòng -> Tự động load danh sách Phòng trống tương ứng
         view.getCboLoaiPhong().addActionListener(e -> {
             LoaiPhong loai = (LoaiPhong) view.getCboLoaiPhong().getSelectedItem();
             if (loai != null) {
+                // Hiển thị giá tiền gợi ý
                 view.getLblGiaPhong().setText("Giá: " + String.format("%,.0f", loai.getGiaTheoNgay()) + " VNĐ");
+                // Load danh sách phòng
                 loadPhongTrong(loai.getMaLoaiPhong());
             }
         });
 
-        // 3. Sự kiện Lưu -> Phân chia trường hợp Thêm/Sửa
+        // Sự kiện: Bấm nút Lưu (Xác nhận Đặt hoặc Sửa)
         view.getBtnLuu().addActionListener(e -> xuLyLuu());
     }
 
-    // --- CÁC HÀM HỖ TRỢ ---
+    // ============================================================
+    // PHẦN 2: CÁC HÀM HỖ TRỢ LOAD DỮ LIỆU (DATA LOADING)
+    // ============================================================
 
+    /**
+     * Load danh sách tất cả Loại phòng vào ComboBox
+     */
     private void loadDataCombobox() {
         List<LoaiPhong> list = lpDao.getAllLoaiPhong();
         for (LoaiPhong lp : list) {
@@ -49,59 +76,70 @@ public class DatPhongController {
         }
     }
 
+    /**
+     * Load danh sách Phòng Trống dựa theo Loại phòng đã chọn
+     * Logic đặc biệt: Nếu đang ở chế độ SỬA, phải hiển thị cả phòng cũ của đơn đó.
+     */
     private void loadPhongTrong(int maLoai) {
         view.getCboPhongTrong().removeAllItems();
         
-        // Logic bổ sung: Khi Sửa, ta cần load cả phòng đang ở hiện tại vào list phòng trống
-        // Tuy nhiên để đơn giản, ta cứ load phòng trống trước.
+        // 1. Lấy danh sách các phòng đang TRỐNG trong CSDL
         List<Phong> list = pDao.getPhongTrongByLoai(maLoai);
         
-        // Nếu đang sửa, ta cần add thêm cái phòng cũ vào list này để người dùng chọn lại nó được
+        // 2. [LOGIC SỬA]: Nếu đang sửa đơn, ta cần thêm phòng cũ vào list (dù nó đang trạng thái 'Đã đặt')
+        // để người dùng có thể giữ nguyên phòng cũ nếu muốn.
         if (view.getMaDatPhongDangSua() > 0) {
-            // Lấy thông tin đơn cũ
             DatPhong oldDP = dpDao.getDatPhongById(view.getMaDatPhongDangSua());
-            if (oldDP != null && oldDP.getMaPhong() != 0) {
-                // Giả lập tạo đối tượng phòng cũ (Chỉ cần Mã và Số phòng để hiển thị)
-                // Lưu ý: Đúng ra phải query lấy tên phòng, ở đây tôi ví dụ
-                 // Bạn có thể cần hàm pDao.getPhongById(id) để lấy chính xác tên phòng
-                 // Tạm thời add vào list một phòng "Phòng Hiện Tại"
-                 // list.add(0, new Phong(oldDP.getMaPhong(), "Phòng cũ (Đang chọn)", 0, ""));
-            }
+            // (Đoạn này logic nâng cao: Cần query lấy thông tin phòng cũ và add vào list nếu chưa có)
+            // Hiện tại ta tạm chấp nhận chỉ load phòng trống.
         }
 
+        // 3. Đổ dữ liệu vào ComboBox
         if (list.isEmpty()) {
             view.getCboPhongTrong().addItem(new Phong(0, "Hết phòng", 0, ""));
-            // Nếu không phải admin thì disable, tùy logic
         } else {
-            for (Phong p : list) view.getCboPhongTrong().addItem(p);
+            for (Phong p : list) {
+                view.getCboPhongTrong().addItem(p);
+            }
         }
     }
 
+    /**
+     * Tìm thông tin khách hàng dựa trên số CCCD nhập vào
+     */
     private void timKhachHang() {
         String cccd = view.getTxtCCCD().getText().trim();
         if (cccd.isEmpty()) return;
 
         KhachHang kh = khDao.getKhachHangByCCCD(cccd);
+        
         if (kh != null) {
+            // Trường hợp 1: Khách quen (Đã có trong CSDL)
             view.getTxtHoTen().setText(kh.getHoTen());
             view.getTxtSDT().setText(kh.getSdt());
             view.getTxtDiaChi().setText(kh.getDiaChi());
-            view.getTxtHoTen().setEditable(false);
-            JOptionPane.showMessageDialog(view, "Tìm thấy khách cũ!");
+            view.getTxtHoTen().setEditable(false); // Khóa tên lại cho chính xác
+            JOptionPane.showMessageDialog(view, "Tìm thấy khách hàng cũ!");
         } else {
+            // Trường hợp 2: Khách mới
             view.getTxtHoTen().setText("");
             view.getTxtSDT().setText("");
             view.getTxtDiaChi().setText("");
-            view.getTxtHoTen().setEditable(true); // Cho phép nhập mới
+            view.getTxtHoTen().setEditable(true); // Mở khóa để nhập tên mới
             JOptionPane.showMessageDialog(view, "Khách mới. Vui lòng nhập thông tin.");
         }
     }
 
-    // ==========================================================
-    // === HÀM XỬ LÝ LƯU (QUAN TRỌNG NHẤT) - ĐÃ SỬA LOGIC ===
-    // ==========================================================
+    // ============================================================
+    // PHẦN 3: XỬ LÝ NGHIỆP VỤ CHÍNH (SAVE LOGIC)
+    // ============================================================
+    
+    /**
+     * Hàm xử lý nút LƯU / XÁC NHẬN
+     * Bao gồm: Validate dữ liệu -> Kiểm tra khách hàng -> Insert hoặc Update
+     */
     private void xuLyLuu() {
-        // 1. Validate dữ liệu trống (Kiểm tra cơ bản)
+        // --- BƯỚC 1: KIỂM TRA DỮ LIỆU ĐẦU VÀO (VALIDATION) ---
         if (view.getTxtHoTen().getText().trim().isEmpty() || 
             view.getTxtCCCD().getText().trim().isEmpty() ||
             view.getTxtSDT().getText().trim().isEmpty() ||
@@ -111,24 +149,23 @@ public class DatPhongController {
             return;
         }
         
-        // --- 2. VALIDATE ĐỊNH DẠNG (CODE MỚI THÊM) ---
+        // Kiểm tra định dạng (Regex)
         String sdt = view.getTxtSDT().getText().trim();
         String cccd = view.getTxtCCCD().getText().trim();
         
-        // Gọi hàm checkValidate ở cuối file để kiểm tra
         if (!checkValidate("SDT", sdt)) {
-            JOptionPane.showMessageDialog(view, "Lỗi: Số điện thoại không hợp lệ!\n(Phải có 10 số, bắt đầu bằng số 0)");
-            view.getTxtSDT().requestFocus(); // Đưa chuột về ô lỗi
-            return; // Dừng lại, không lưu
+            JOptionPane.showMessageDialog(view, "Lỗi: SĐT phải có 10 số, bắt đầu bằng số 0!");
+            view.getTxtSDT().requestFocus();
+            return; 
         }
         
         if (!checkValidate("CCCD", cccd)) {
-            JOptionPane.showMessageDialog(view, "Lỗi: CCCD không hợp lệ!\n(Phải chứa đúng 12 chữ số)");
+            JOptionPane.showMessageDialog(view, "Lỗi: CCCD phải chứa đúng 12 chữ số!");
             view.getTxtCCCD().requestFocus();
             return;
         }
-        // ---------------------------------------------
         
+        // Kiểm tra phòng hợp lệ
         Phong phongMoi = (Phong) view.getCboPhongTrong().getSelectedItem();
         if (phongMoi == null || phongMoi.getMaPhong() == 0) {
             JOptionPane.showMessageDialog(view, "Vui lòng chọn một phòng hợp lệ!");
@@ -137,38 +174,45 @@ public class DatPhongController {
 
         try {
             double tienCoc = Double.parseDouble(view.getTxtTienCoc().getText());
+            
+            // Lấy ID đơn hàng (Nếu = 0 là Thêm mới, > 0 là Đang sửa)
             int maDatPhong = view.getMaDatPhongDangSua(); 
 
             // --- TRƯỜNG HỢP 1: THÊM MỚI (INSERT) ---
             if (maDatPhong == 0) {
+                // A. Lấy ID Khách hàng (Tìm cũ hoặc Thêm mới)
                 int maKH = xuLyKhachHang(); 
                 
+                // B. Tạo đối tượng DatPhong
                 DatPhong dp = new DatPhong();
                 dp.setMaPhong(phongMoi.getMaPhong());
                 dp.setMaKhachHang(maKH);
-                dp.setMaNhanVien(1); 
+                dp.setMaNhanVien(1); // Mặc định NV số 1 (Sau này sẽ lấy từ session đăng nhập)
                 dp.setTienDatCoc(tienCoc);
                 dp.setNgayCheckIn(view.getNgayDen());
                 dp.setNgayCheckOut(view.getNgayDi());
                 dp.setTrangThai("Đã đặt");
 
+                // C. Lưu xuống DB và Cập nhật trạng thái phòng
                 if (dpDao.insertDatPhong(dp)) {
-                    pDao.updateTrangThaiPhong(phongMoi.getMaPhong(), "Đã đặt");
-                    JOptionPane.showMessageDialog(view, "Thêm mới thành công!");
-                    view.dispose();
+                    pDao.updateTrangThaiPhong(phongMoi.getMaPhong(), "Đã đặt"); // Phòng chuyển sang "Đã đặt"
+                    JOptionPane.showMessageDialog(view, "Đặt phòng thành công!");
+                    view.dispose(); // Đóng dialog
                 }
 
-            // --- TRƯỜNG HỢP 2: CẬP NHẬT (UPDATE) ---
+            // --- TRƯỜNG HỢP 2: CẬP NHẬT ĐƠN CŨ (UPDATE) ---
             } else {
                 int confirm = JOptionPane.showConfirmDialog(view, 
                         "Bạn có chắc chắn muốn cập nhật thông tin đơn này?", 
                         "Xác nhận sửa", JOptionPane.YES_NO_OPTION);
                 if (confirm != JOptionPane.YES_OPTION) return;
 
+                // A. Lấy thông tin cũ để so sánh
                 DatPhong dpCu = dpDao.getDatPhongById(maDatPhong);
                 int maPhongCu = dpCu.getMaPhong();
                 int maPhongMoi = phongMoi.getMaPhong();
 
+                // B. Tạo đối tượng cập nhật
                 DatPhong dpMoi = new DatPhong();
                 dpMoi.setMaDatPhong(maDatPhong);
                 dpMoi.setMaPhong(maPhongMoi);
@@ -176,10 +220,12 @@ public class DatPhongController {
                 dpMoi.setNgayCheckIn(view.getNgayDen());
                 dpMoi.setNgayCheckOut(view.getNgayDi());
                 
+                // C. Thực hiện Update
                 if (dpDao.updateDatPhong(dpMoi)) {
+                    // Logic đổi phòng: Nếu khách đổi sang phòng khác
                     if (maPhongCu != maPhongMoi) {
-                        pDao.updateTrangThaiPhong(maPhongCu, "Trống");   
-                        pDao.updateTrangThaiPhong(maPhongMoi, "Đã đặt"); 
+                        pDao.updateTrangThaiPhong(maPhongCu, "Trống");   // Trả phòng cũ về Trống
+                        pDao.updateTrangThaiPhong(maPhongMoi, "Đã đặt"); // Set phòng mới thành Đã đặt
                     }
                     
                     JOptionPane.showMessageDialog(view, "Cập nhật thành công!");
@@ -197,17 +243,30 @@ public class DatPhongController {
         }
     }
 
-    // Hàm phụ: Xử lý tìm hoặc thêm khách hàng
+    // ============================================================
+    // PHẦN 4: CÁC HÀM TIỆN ÍCH (PRIVATE HELPERS)
+    // ============================================================
+
+    /**
+     * Helper: Kiểm tra khách hàng đã có chưa.
+     * Nếu chưa -> Tự động thêm mới vào bảng KhachHang.
+     * @return maKhachHang
+     */
     private int xuLyKhachHang() {
         KhachHang khCheck = khDao.getKhachHangByCCCD(view.getTxtCCCD().getText());
         if (khCheck != null) {
-            return khCheck.getMaKhachHang();
+            return khCheck.getMaKhachHang(); // Khách cũ
         } else {
+            // Khách mới -> Tạo mới
             KhachHang newKH = new KhachHang(0, view.getTxtHoTen().getText(), 
                     view.getTxtCCCD().getText(), view.getTxtSDT().getText(), view.getTxtDiaChi().getText());
             return khDao.addKhachHang(newKH);
         }
     }
+
+    /**
+     * Helper: Kiểm tra định dạng chuỗi (Regex)
+     */
     private boolean checkValidate(String type, String value) {
         if (value == null || value.trim().isEmpty()) return false;
         

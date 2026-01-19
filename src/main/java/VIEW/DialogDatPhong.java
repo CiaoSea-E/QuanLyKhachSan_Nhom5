@@ -1,181 +1,214 @@
 package VIEW;
 
+import Helper.ModernUI;
 import Model.*;
 import java.awt.*;
 import java.util.Date;
-import java.util.List;
 import javax.swing.*;
+import javax.swing.border.Border;
+import javax.swing.border.EmptyBorder;
 
+/**
+ * Màn hình Dialog (Cửa sổ nổi) nhập thông tin Đặt Phòng.
+ * Sử dụng chung cho 2 mục đích:
+ * 1. Tạo đơn mới (Form trống).
+ * 2. Cập nhật đơn cũ (Form có sẵn dữ liệu).
+ */
 public class DialogDatPhong extends JDialog {
 
-    // Khai báo public hoặc có Getter để Controller truy cập được
-    private JTextField txtCCCD, txtHoTen, txtSDT, txtDiaChi, txtTienCoc;
+    // --- 1. KHAI BÁO CÁC COMPONENT GIAO DIỆN ---
+    
+    // Phần thông tin khách hàng
+    private ModernUI.RoundedTextField txtCCCD, txtHoTen, txtSDT, txtDiaChi;
+    private JButton btnTimKhach; // Nút tìm khách theo CCCD
+    
+    // Phần thông tin phòng & thanh toán
     private JComboBox<LoaiPhong> cboLoaiPhong;
     private JComboBox<Phong> cboPhongTrong;
-    private JLabel lblGiaPhong;
     private JSpinner spinNgayDen, spinNgayDi;
-    private JButton btnTimKhach, btnLuu, btnHuy;
+    private ModernUI.RoundedTextField txtTienCoc;
+    private JLabel lblGiaPhong;
+    
+    // Nút xác nhận
+    private JButton btnLuu, btnHuy;
+    
+    // Biến trạng thái: Lưu ID đơn hàng nếu đang ở chế độ Sửa (0 = Thêm mới)
+    private int maDatPhongDangSua = 0;
 
+    // --- 2. CONSTRUCTOR ---
     public DialogDatPhong(Frame parent, boolean modal) {
         super(parent, modal);
         initComponents();
-        this.setLocationRelativeTo(parent);
+        this.setLocationRelativeTo(parent); // Căn giữa màn hình
     }
 
+    // --- 3. KHỞI TẠO GIAO DIỆN CHÍNH ---
     private void initComponents() {
-        this.setTitle("TẠO ĐẶT PHÒNG MỚI");
-        this.setSize(700, 550);
+        this.setTitle("Đặt Phòng Mới");
+        this.setSize(1000, 650);
         this.setLayout(new BorderLayout());
+        this.getContentPane().setBackground(ModernUI.BG_COLOR);
 
-        // --- 1. Header ---
-        JLabel lblHeader = new JLabel("THÔNG TIN ĐẶT PHÒNG", JLabel.CENTER);
-        lblHeader.setFont(new Font("Arial", Font.BOLD, 22));
-        lblHeader.setForeground(Color.BLUE);
-        this.add(lblHeader, BorderLayout.NORTH);
+        // A. Header (Tiêu đề trên cùng)
+        this.add(ModernUI.createHeaderPanel("THÔNG TIN ĐẶT PHÒNG"), BorderLayout.NORTH);
 
-        // --- 2. Body ---
-        JPanel pnlBody = new JPanel(new GridLayout(1, 2, 10, 0));
+        // B. Body (Phần nội dung chính - Chia làm 2 cột)
+        JPanel pnlBody = new JPanel(new GridLayout(1, 2, 25, 0)); // 1 dòng, 2 cột, khoảng cách 25px
+        pnlBody.setOpaque(false);
+        pnlBody.setBorder(new EmptyBorder(25, 25, 25, 25)); // Căn lề các bên
 
-        // Cột Trái (Khách)
-        JPanel pnlTrai = new JPanel(new GridLayout(8, 1));
-        pnlTrai.setBorder(BorderFactory.createTitledBorder("1. Khách Hàng"));
+        // Cột Trái: Thông tin Khách Hàng
+        JPanel pnlKhach = createSectionPanel("THÔNG TIN KHÁCH HÀNG");
+        layoutKhachHang(pnlKhach);
+        pnlBody.add(pnlKhach);
 
-        pnlTrai.add(new JLabel("CCCD:"));
-        JPanel pnlTim = new JPanel(new BorderLayout());
-        txtCCCD = new JTextField();
-        btnTimKhach = new JButton("Tìm");
-        pnlTim.add(txtCCCD, BorderLayout.CENTER);
-        pnlTim.add(btnTimKhach, BorderLayout.EAST);
-        pnlTrai.add(pnlTim);
+        // Cột Phải: Thông tin Phòng
+        JPanel pnlPhong = createSectionPanel("CHI TIẾT PHÒNG & CỌC");
+        layoutPhong(pnlPhong);
+        pnlBody.add(pnlPhong);
 
-        pnlTrai.add(new JLabel("Họ Tên:"));
-        txtHoTen = new JTextField();
-        pnlTrai.add(txtHoTen);
-        pnlTrai.add(new JLabel("SĐT:"));
-        txtSDT = new JTextField();
-        pnlTrai.add(txtSDT);
-        pnlTrai.add(new JLabel("Địa Chỉ:"));
-        txtDiaChi = new JTextField();
-        pnlTrai.add(txtDiaChi);
-        pnlBody.add(pnlTrai);
-
-        // Cột Phải (Phòng)
-        JPanel pnlPhai = new JPanel(new GridLayout(10, 1));
-        pnlPhai.setBorder(BorderFactory.createTitledBorder("2. Phòng & Cọc"));
-
-        pnlPhai.add(new JLabel("Loại Phòng:"));
-        cboLoaiPhong = new JComboBox<>();
-        pnlPhai.add(cboLoaiPhong);
-        lblGiaPhong = new JLabel("Giá: 0 VNĐ");
-        lblGiaPhong.setForeground(Color.RED);
-        pnlPhai.add(lblGiaPhong);
-
-        pnlPhai.add(new JLabel("Chọn Phòng:"));
-        cboPhongTrong = new JComboBox<>();
-        pnlPhai.add(cboPhongTrong);
-
-        pnlPhai.add(new JLabel("Ngày Đến - Ngày Đi:"));
-        JPanel pnlNgay = new JPanel(new GridLayout(1, 2));
-        spinNgayDen = new JSpinner(new SpinnerDateModel());
-        spinNgayDen.setEditor(new JSpinner.DateEditor(spinNgayDen, "dd/MM/yyyy HH:mm"));
-        spinNgayDi = new JSpinner(new SpinnerDateModel());
-        spinNgayDi.setEditor(new JSpinner.DateEditor(spinNgayDi, "dd/MM/yyyy HH:mm"));
-        // Set mặc định ngày đi là ngày mai
-        java.util.Calendar cal = java.util.Calendar.getInstance();
-        cal.add(java.util.Calendar.DATE, 1);
-        spinNgayDi.setValue(cal.getTime());
-        pnlNgay.add(spinNgayDen);
-        pnlNgay.add(spinNgayDi);
-        pnlPhai.add(pnlNgay);
-
-        pnlPhai.add(new JLabel("Tiền Cọc:"));
-        txtTienCoc = new JTextField();
-        pnlPhai.add(txtTienCoc);
-        pnlBody.add(pnlPhai);
         this.add(pnlBody, BorderLayout.CENTER);
 
-        // --- 3. Footer ---
-        JPanel pnlFooter = new JPanel(new FlowLayout(FlowLayout.RIGHT));
-        btnHuy = new JButton("Hủy");
-        btnLuu = new JButton("Lưu & Thanh Toán");
-        btnLuu.setBackground(Color.GREEN);
+        // C. Footer (Các nút bấm dưới cùng)
+        JPanel pnlFooter = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 15));
+        pnlFooter.setBackground(Color.WHITE);
+        
+        btnHuy = new ModernUI.ModernButton("THOÁT", ModernUI.RED_COLOR, ModernUI.RED_COLOR.darker());
+        btnLuu = new ModernUI.ModernButton("XÁC NHẬN", ModernUI.GREEN_COLOR, ModernUI.GREEN_COLOR.darker());
+
         pnlFooter.add(btnHuy);
         pnlFooter.add(btnLuu);
         this.add(pnlFooter, BorderLayout.SOUTH);
 
-        // --- SỰ KIỆN HỦY (Logic đơn giản để luôn ở View cũng được) ---
+        // Sự kiện mặc định nút Thoát
         btnHuy.addActionListener(e -> this.dispose());
     }
 
-    // === CÁC HÀM GETTER ĐỂ CONTROLLER GỌI ===
-    public JButton getBtnTimKhach() {
-        return btnTimKhach;
+    // --- 4. CÁC HÀM HỖ TRỢ LAYOUT (SẮP XẾP GIAO DIỆN) ---
+
+    // Tạo khung viền có tiêu đề cho từng vùng
+    private JPanel createSectionPanel(String title) {
+        JPanel p = new JPanel(new GridBagLayout());
+        p.setBackground(Color.WHITE);
+        Border line = BorderFactory.createLineBorder(new Color(230, 230, 230));
+        Border titled = BorderFactory.createTitledBorder(line, title, 
+                0, 0, ModernUI.FONT_BOLD, ModernUI.PRIMARY);
+        p.setBorder(BorderFactory.createCompoundBorder(titled, new EmptyBorder(10, 20, 10, 20)));
+        return p;
     }
 
-    public JButton getBtnLuu() {
-        return btnLuu;
+    // Sắp xếp các ô nhập liệu Khách Hàng
+    private void layoutKhachHang(JPanel p) {
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(8, 0, 8, 0); // Khoảng cách giữa các dòng
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        gbc.weightx = 1.0;
+        gbc.gridx = 0; 
+        int y = 0; // Biến đếm dòng
+
+        // Dòng 1: CCCD + Nút Tìm
+        gbc.gridy = y++; p.add(ModernUI.createLabel("CCCD / CMND:"), gbc);
+        JPanel pnlTim = new JPanel(new BorderLayout(10, 0));
+        pnlTim.setOpaque(false);
+        
+        txtCCCD = new ModernUI.RoundedTextField(15);
+        btnTimKhach = new ModernUI.ModernButton("TÌM", ModernUI.PRIMARY, ModernUI.PRIMARY_LIGHT);
+        btnTimKhach.setPreferredSize(new Dimension(70, 35));
+        
+        pnlTim.add(txtCCCD, BorderLayout.CENTER);
+        pnlTim.add(btnTimKhach, BorderLayout.EAST);
+        gbc.gridy = y++; p.add(pnlTim, gbc);
+
+        // Dòng 2: Họ Tên
+        gbc.gridy = y++; p.add(ModernUI.createLabel("Họ Tên Khách:"), gbc);
+        gbc.gridy = y++; txtHoTen = new ModernUI.RoundedTextField(15); p.add(txtHoTen, gbc);
+
+        // Dòng 3: Số điện thoại
+        gbc.gridy = y++; p.add(ModernUI.createLabel("Số Điện Thoại:"), gbc);
+        gbc.gridy = y++; txtSDT = new ModernUI.RoundedTextField(15); p.add(txtSDT, gbc);
+
+        // Dòng 4: Địa chỉ
+        gbc.gridy = y++; p.add(ModernUI.createLabel("Địa Chỉ:"), gbc);
+        gbc.gridy = y++; 
+        gbc.weighty = 1.0; gbc.anchor = GridBagConstraints.NORTH; // Đẩy lên trên
+        txtDiaChi = new ModernUI.RoundedTextField(15); p.add(txtDiaChi, gbc);
     }
 
-    public JComboBox<LoaiPhong> getCboLoaiPhong() {
-        return cboLoaiPhong;
+    // Sắp xếp các ô nhập liệu Phòng
+    private void layoutPhong(JPanel p) {
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(8, 0, 8, 0);
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        gbc.weightx = 1.0;
+        gbc.gridx = 0; 
+        int y = 0;
+
+        // Dòng 1: Chọn Loại Phòng
+        gbc.gridy = y++; p.add(ModernUI.createLabel("Loại Phòng:"), gbc);
+        gbc.gridy = y++; 
+        cboLoaiPhong = new JComboBox<>(); 
+        cboLoaiPhong.setPreferredSize(new Dimension(200, 35)); 
+        cboLoaiPhong.setBackground(Color.WHITE); 
+        p.add(cboLoaiPhong, gbc);
+
+        // Dòng 2: Hiển thị giá tiền gợi ý
+        gbc.gridy = y++;
+        lblGiaPhong = new JLabel("Giá: 0 VNĐ");
+        lblGiaPhong.setFont(new Font("Segoe UI", Font.BOLD | Font.ITALIC, 14));
+        lblGiaPhong.setForeground(ModernUI.RED_COLOR);
+        p.add(lblGiaPhong, gbc);
+
+        // Dòng 3: Chọn Phòng Trống
+        gbc.gridy = y++; p.add(ModernUI.createLabel("Chọn Phòng Trống:"), gbc);
+        gbc.gridy = y++; 
+        cboPhongTrong = new JComboBox<>(); 
+        cboPhongTrong.setPreferredSize(new Dimension(200, 35)); 
+        cboPhongTrong.setBackground(Color.WHITE); 
+        p.add(cboPhongTrong, gbc);
+
+        // Dòng 4: Chọn Ngày Đến - Ngày Đi
+        gbc.gridy = y++; p.add(ModernUI.createLabel("Thời Gian Lưu Trú:"), gbc);
+        gbc.gridy = y++;
+        JPanel pnlDate = new JPanel(new GridLayout(1, 2, 10, 0)); 
+        pnlDate.setOpaque(false);
+        
+        spinNgayDen = createSpinner();
+        spinNgayDi = createSpinner();
+        
+        // Mặc định ngày đi là ngày mai
+        java.util.Calendar cal = java.util.Calendar.getInstance();
+        cal.add(java.util.Calendar.DATE, 1);
+        spinNgayDi.setValue(cal.getTime());
+
+        pnlDate.add(spinNgayDen); 
+        pnlDate.add(spinNgayDi);
+        p.add(pnlDate, gbc);
+
+        // Dòng 5: Tiền cọc
+        gbc.gridy = y++; p.add(ModernUI.createLabel("Tiền Đặt Cọc (VNĐ):"), gbc);
+        gbc.gridy = y++; 
+        gbc.weighty = 1.0; gbc.anchor = GridBagConstraints.NORTH;
+        txtTienCoc = new ModernUI.RoundedTextField(15); p.add(txtTienCoc, gbc);
     }
 
-    public JComboBox<Phong> getCboPhongTrong() {
-        return cboPhongTrong;
+    // Tạo Spinner chọn ngày giờ
+    private JSpinner createSpinner() {
+        JSpinner spin = new JSpinner(new SpinnerDateModel());
+        spin.setEditor(new JSpinner.DateEditor(spin, "dd/MM/yyyy HH:mm"));
+        spin.setPreferredSize(new Dimension(100, 35));
+        spin.setBorder(BorderFactory.createLineBorder(new Color(200, 200, 200)));
+        return spin;
     }
 
-    public JTextField getTxtCCCD() {
-        return txtCCCD;
-    }
-
-    public JTextField getTxtHoTen() {
-        return txtHoTen;
-    }
-
-    public JTextField getTxtSDT() {
-        return txtSDT;
-    }
-
-    public JTextField getTxtDiaChi() {
-        return txtDiaChi;
-    }
-
-    public JTextField getTxtTienCoc() {
-        return txtTienCoc;
-    }
-
-    public JLabel getLblGiaPhong() {
-        return lblGiaPhong;
-    }
-
-    public Date getNgayDen() {
-        return (Date) spinNgayDen.getValue();
-    }
-
-    public Date getNgayDi() {
-        return (Date) spinNgayDi.getValue();
-    }
-
-// --- PHẦN BỔ SUNG CHO CHỨC NĂNG SỬA ---
-    // Biến lưu mã đặt phòng đang sửa (Mặc định là 0 hoặc -1 nghĩa là đang Tạo Mới)
-    private int maDatPhongDangSua = 0;
-
-    public int getMaDatPhongDangSua() {
-        return maDatPhongDangSua;
-    }
-
-    public void setMaDatPhongDangSua(int maDatPhongDangSua) {
-        this.maDatPhongDangSua = maDatPhongDangSua;
-    }
-
+    // --- 5. HÀM ĐẶC BIỆT: CHUYỂN CHẾ ĐỘ SỬA ---
     /**
-     * Hàm này dùng để đổ dữ liệu cũ vào Form khi bấm nút Sửa
+     * Đổ dữ liệu từ một đơn đặt phòng có sẵn vào Dialog.
+     * Hàm này được gọi khi người dùng bấm nút "Sửa" ở màn hình quản lý.
      */
     public void setModel(DatPhong dp, KhachHang kh) {
-        // 1. Gán mã để Controller biết đây là sửa
-        this.maDatPhongDangSua = dp.getMaDatPhong(); 
+        this.maDatPhongDangSua = dp.getMaDatPhong(); // Lưu lại ID để biết là đang sửa
         
-        // 2. Điền thông tin khách hàng (CODE MỚI THÊM)
+        // 1. Đổ thông tin khách
         if (kh != null) {
             txtCCCD.setText(kh.getCccd());
             txtHoTen.setText(kh.getHoTen());
@@ -183,20 +216,19 @@ public class DialogDatPhong extends JDialog {
             txtDiaChi.setText(kh.getDiaChi());
         }
         
-        // 3. Set tiền cọc và ngày (Giữ nguyên)
+        // 2. Đổ thông tin phòng & cọc
         txtTienCoc.setText(String.valueOf((long)dp.getTienDatCoc()));
         spinNgayDen.setValue(dp.getNgayCheckIn());
         spinNgayDi.setValue(dp.getNgayCheckOut());
         
-        // 4. Setup giao diện (Giữ nguyên)
-        this.setTitle("CẬP NHẬT ĐƠN ĐẶT PHÒNG - MÃ: " + dp.getMaDatPhong());
-        btnLuu.setText("Lưu Cập Nhật");
-        btnLuu.setBackground(Color.ORANGE);
+        // 3. Cập nhật giao diện
+        this.setTitle("CẬP NHẬT ĐƠN - MÃ: " + dp.getMaDatPhong());
+        btnLuu.setText("LƯU CẬP NHẬT");
+        txtCCCD.setEditable(false); // Không cho sửa CCCD để tránh lỗi logic khách hàng
         
-        // Khóa không cho sửa thông tin khách để tránh rối logic (hoặc mở nếu bạn muốn)
-        txtCCCD.setEditable(false); 
-        
-        // 5. Chọn lại Phòng cũ trong Combobox (Giữ nguyên)
+        // 4. Chọn lại đúng phòng cũ trong ComboBox
+        // (Lưu ý: Logic này chỉ chọn được nếu phòng cũ có trong danh sách phòng trống
+        //  Controller sẽ xử lý việc load thêm phòng cũ vào list nếu cần)
         ComboBoxModel<Phong> model = cboPhongTrong.getModel();
         for (int i = 0; i < model.getSize(); i++) {
             Phong p = model.getElementAt(i);
@@ -206,4 +238,22 @@ public class DialogDatPhong extends JDialog {
             }
         }
     }
+
+    // --- 6. GETTERS (ĐỂ CONTROLLER LẤY DỮ LIỆU) ---
+    public JButton getBtnTimKhach() { return btnTimKhach; }
+    public JButton getBtnLuu() { return btnLuu; }
+    public JComboBox<LoaiPhong> getCboLoaiPhong() { return cboLoaiPhong; }
+    public JComboBox<Phong> getCboPhongTrong() { return cboPhongTrong; }
+    public JTextField getTxtCCCD() { return txtCCCD; }
+    public JTextField getTxtHoTen() { return txtHoTen; }
+    public JTextField getTxtSDT() { return txtSDT; }
+    public JTextField getTxtDiaChi() { return txtDiaChi; }
+    public JTextField getTxtTienCoc() { return txtTienCoc; }
+    public JLabel getLblGiaPhong() { return lblGiaPhong; }
+    public Date getNgayDen() { return (Date) spinNgayDen.getValue(); }
+    public Date getNgayDi() { return (Date) spinNgayDi.getValue(); }
+    
+    // Getter/Setter cho biến trạng thái
+    public int getMaDatPhongDangSua() { return maDatPhongDangSua; }
+    public void setMaDatPhongDangSua(int maDatPhongDangSua) { this.maDatPhongDangSua = maDatPhongDangSua; }
 }

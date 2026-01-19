@@ -3,13 +3,20 @@ package Controller;
 import DAO.KhuyenMaiDAO;
 import Model.KhuyenMai;
 import VIEW.QuanLyKhuyenMaiPanel;
+import Helper.ExcelHelper;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.util.Date;
 import java.util.List;
 import javax.swing.JOptionPane;
-import Helper.ExcelHelper;
 
+/**
+ * Controller điều phối chức năng Quản Lý Khuyến Mãi
+ * Nhiệm vụ:
+ * 1. Lắng nghe sự kiện từ View (Nút bấm, Click bảng).
+ * 2. Gọi DAO để xử lý dữ liệu xuống Database.
+ * 3. Cập nhật lại giao diện (Bảng, Form) cho người dùng.
+ */
 public class KhuyenMaiController {
 
     private QuanLyKhuyenMaiPanel view;
@@ -19,168 +26,266 @@ public class KhuyenMaiController {
         this.view = view;
         this.dao = new KhuyenMaiDAO();
         
-        initEvents();
+        // 1. Gắn sự kiện cho các nút bấm
+        initEvents(); 
+        
+        // 2. Tải dữ liệu ban đầu lên bảng
+        loadDataToTable(); 
     }
-//su kien
-    private void initEvents() {
-        view.getBtnThem().addActionListener(e -> xuLyThem());
-        view.getBtnSua().addActionListener(e -> xuLySua());
-        view.getBtnXoa().addActionListener(e -> xuLyXoa());
-        
-        view.getBtnLamMoi().addActionListener(e -> {
-            clearForm();
-            loadDataToTable();
-        });
-        
-        view.getBtnTimKiem().addActionListener(e -> {
-            String keyword = view.getTxtTimKiem().getText().trim();
-            List<KhuyenMai> list = dao.timKiem(keyword);
-            fillTable(list);
-        });
 
+    // ============================================================
+    // PHẦN 1: KHỞI TẠO SỰ KIỆN (EVENT LISTENER)
+    // ============================================================
+    private void initEvents() {
+        // Nhóm nút thao tác chính (CRUD)
+        view.getBtnThem().addActionListener(e -> themKhuyenMai());
+        view.getBtnSua().addActionListener(e -> capNhatKhuyenMai());
+        view.getBtnXoa().addActionListener(e -> xoaKhuyenMai());
+        view.getBtnLamMoi().addActionListener(e -> clearForm());
+        
+        // Nút tiện ích
+        view.getBtnXuatExcel().addActionListener(e -> xuatExcel());
+        
+        // Nhóm Tìm kiếm & Lọc
+        view.getBtnTimKiem().addActionListener(e -> xuLyTimKiem());
+        view.getCboLocLoai().addActionListener(e -> xuLyTimKiem()); // Tự động tìm khi chọn ComboBox
+        
+        // Sự kiện Click chuột vào bảng -> Đổ dữ liệu lên Form
         view.getTblKhuyenMai().addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent e) {
-                int row = view.getTblKhuyenMai().getSelectedRow();
-                if (row >= 0) fillForm(row);
-            }
-        });
-        view.getBtnXuatExcel().addActionListener(e -> {
-            try {
-                // Gọi hàm static bên ExcelHelper
-                // Tham số 1: Cái bảng dữ liệu (JTable) lấy từ View
-                // Tham số 2: Cái View (để hiện thông báo ở giữa màn hình)
-                ExcelHelper.exportToExcel(view.getTblKhuyenMai(), view);
-                
-            } catch (Exception ex) {
-                ex.printStackTrace();
+                fillFormFromTable();
             }
         });
     }
+    
+    // ============================================================
+    // PHẦN 2: CÁC CHỨC NĂNG NGHIỆP VỤ (BUSINESS LOGIC)
+    // ============================================================
 
-    private void xuLyThem() {
-        KhuyenMai km = getModelFromForm(); 
-        if (km == null) return;
-
-        if (dao.checkTonTai(km.getMaKM())) {
-            JOptionPane.showMessageDialog(view, "Mã khuyến mãi '" + km.getMaKM() + "' đã tồn tại!");
-            return;
-        }
-
-        if (dao.insertKhuyenMai(km)) {
-            JOptionPane.showMessageDialog(view, "Thêm thành công!");
-            loadDataToTable();
-            clearForm();
-        } else {
-            JOptionPane.showMessageDialog(view, "Thêm thất bại!");
-        }
-    }
-
-    private void xuLySua() {
-        KhuyenMai km = getModelFromForm();
-        if (km == null) return;
-
-        if (dao.updateKhuyenMai(km)) {
-            JOptionPane.showMessageDialog(view, "Cập nhật thành công!");
-            loadDataToTable(); 
-            clearForm();
-        } else {
-            JOptionPane.showMessageDialog(view, "Cập nhật thất bại!");
-        }
-    }
-
-    private void xuLyXoa() {
-        String maKM = view.getTxtMaKM().getText();
-        if (maKM.isEmpty()) {
-            JOptionPane.showMessageDialog(view, "Vui lòng chọn khuyến mãi cần xóa!");
-            return;
-        }
-
-        int confirm = JOptionPane.showConfirmDialog(view, "Bạn có chắc chắn muốn xóa?");
-        if (confirm == JOptionPane.YES_OPTION) {
-            if (dao.deleteKhuyenMai(maKM)) {
-                JOptionPane.showMessageDialog(view, "Đã xóa thành công!");
-                loadDataToTable();
-                clearForm();
-            } else {
-                JOptionPane.showMessageDialog(view, "Xóa thất bại! (Có thể mã đang được sử dụng)");
-            }
-        }
-    }
-
-    private KhuyenMai getModelFromForm() {
-        String ma = view.getTxtMaKM().getText().trim();
-        String ten = view.getTxtTenKM().getText().trim();
-        String giaStr = view.getTxtGiamGia().getText().trim();
-        Date start = (Date) view.getSpinNgayBatDau().getValue();
-        Date end = (Date) view.getSpinNgayKetThuc().getValue();
-
-        if (ma.isEmpty() || ten.isEmpty() || giaStr.isEmpty()) {
-            JOptionPane.showMessageDialog(view, "Vui lòng nhập đầy đủ thông tin!");
-            return null;
-        }
-
-        if (end.before(start)) {
-            JOptionPane.showMessageDialog(view, "Lỗi: Ngày kết thúc phải sau ngày bắt đầu!");
-            return null;
-        }
-
-        double giamGia = 0;
-        try {
-            giamGia = Double.parseDouble(giaStr);
-            if (giamGia < 0) {
-                JOptionPane.showMessageDialog(view, "Tiền giảm giá không được âm!");
-                return null;
-            }
-        } catch (NumberFormatException e) {
-            JOptionPane.showMessageDialog(view, "Tiền giảm giá phải là số!");
-            return null;
-        }
-
-        return new KhuyenMai(ma, ten, giamGia, start, end, "Đang hoạt động");
-    }
-
+    /**
+     * Lấy dữ liệu mới nhất từ CSDL và hiển thị lên bảng
+     */
     private void loadDataToTable() {
-        List<KhuyenMai> list = dao.getAllKhuyenMai();
-        fillTable(list);
-    }
-
-    private void fillTable(List<KhuyenMai> list) {
-        view.getModel().setRowCount(0);
+        view.getModel().setRowCount(0); // Xóa trắng bảng cũ
+        List<KhuyenMai> list = dao.getAll();
+        
         for (KhuyenMai km : list) {
             view.getModel().addRow(new Object[]{
-                km.getMaKM(),
-                km.getTenKM(),
-                String.format("%,.0f", km.getGiamGia()), 
+                km.getMaGiamGia(),
+                km.getCode(),
+                km.getTenSuKien(),
+                km.getGiamGia(),
+                (km.getLoaiGiam() == 1 ? "%" : "VNĐ"), // Chuyển đổi số thành chữ cho dễ đọc
+                km.getSoLuong(),
                 km.getNgayBatDau(),
-                km.getNgayKetThuc(),
+                km.getNgayKetthuc(),
                 km.getTrangThai()
             });
         }
     }
 
-    private void fillForm(int row) {
-        view.getTxtMaKM().setText(view.getTblKhuyenMai().getValueAt(row, 0).toString());
-        view.getTxtMaKM().setEditable(false);
-        view.getTxtTenKM().setText(view.getTblKhuyenMai().getValueAt(row, 1).toString());
-        String tien = view.getTblKhuyenMai().getValueAt(row, 2).toString().replace(",", "").replace(".", "");
-        view.getTxtGiamGia().setText(tien);
+    private void themKhuyenMai() {
+        // B1. Kiểm tra dữ liệu đầu vào
+        if (!validateForm()) return;
         
-        try {
-            Object objStart = view.getTblKhuyenMai().getValueAt(row, 3);
-            Object objEnd = view.getTblKhuyenMai().getValueAt(row, 4);
-            if (objStart instanceof Date) view.getSpinNgayBatDau().setValue((Date) objStart);
-            if (objEnd instanceof Date) view.getSpinNgayKetThuc().setValue((Date) objEnd);
-        } catch (Exception e) { e.printStackTrace(); }
+        // B2. Lấy dữ liệu từ Form đóng gói thành Object
+        KhuyenMai km = getModelFromView();
+        
+        // B3. Kiểm tra trùng lặp mã Code
+        if (dao.checkTrung(km.getCode())) {
+            JOptionPane.showMessageDialog(view, "Mã Code này đã tồn tại! Vui lòng chọn mã khác.");
+            return;
+        }
+        
+        // B4. Gọi DAO để thêm vào DB
+        if (dao.insert(km)) {
+            JOptionPane.showMessageDialog(view, "Thêm thành công!");
+            loadDataToTable(); // Tải lại bảng để thấy dòng mới
+            clearForm();       // Xóa trắng form để nhập tiếp
+        } else {
+            JOptionPane.showMessageDialog(view, "Thêm thất bại! Vui lòng kiểm tra lại.");
+        }
+    }
+    
+    private void capNhatKhuyenMai() {
+        // Kiểm tra xem người dùng đã chọn dòng nào chưa
+        if (view.getTxtCode().getText().isEmpty()) {
+            JOptionPane.showMessageDialog(view, "Vui lòng chọn mã cần sửa trên bảng!");
+            return;
+        }
+        if (!validateForm()) return;
+        
+        KhuyenMai km = getModelFromView();
+        
+        // Gọi DAO cập nhật
+        if (dao.update(km)) {
+            JOptionPane.showMessageDialog(view, "Cập nhật thành công!");
+            loadDataToTable();
+            clearForm();
+        } else {
+            JOptionPane.showMessageDialog(view, "Cập nhật thất bại!");
+        }
+    }
+    
+    private void xoaKhuyenMai() {
+        int row = view.getTblKhuyenMai().getSelectedRow();
+        if (row == -1) {
+            JOptionPane.showMessageDialog(view, "Vui lòng chọn dòng cần xóa!");
+            return;
+        }
+        
+        // Hỏi xác nhận trước khi xóa (An toàn)
+        int confirm = JOptionPane.showConfirmDialog(view, "Bạn có chắc chắn muốn xóa mã này?", "Xác nhận", JOptionPane.YES_NO_OPTION);
+        if (confirm == JOptionPane.YES_OPTION) {
+            String code = view.getTblKhuyenMai().getValueAt(row, 1).toString();
+            
+            if (dao.delete(code)) {
+                JOptionPane.showMessageDialog(view, "Đã xóa thành công!");
+                loadDataToTable();
+                clearForm();
+            }
+        }
+    }
+    
+    /**
+     * Xử lý tìm kiếm kết hợp lọc
+     */
+    private void xuLyTimKiem() {
+        // Lấy từ khóa
+        String tuKhoa = view.getTxtTimKiem().getText().trim();
+        
+        // Lấy tiêu chí lọc (Map từ index của ComboBox sang giá trị trong DB)
+        int index = view.getCboLocLoai().getSelectedIndex();
+        int loaiGiam = -1; // -1: Tất cả
+        if (index == 1) loaiGiam = 0; // VNĐ
+        if (index == 2) loaiGiam = 1; // %
+        
+        // Gọi DAO tìm kiếm
+        List<KhuyenMai> list = dao.timKiemVaLoc(tuKhoa, loaiGiam);
+        
+        // Đổ dữ liệu tìm được lên bảng
+        view.getModel().setRowCount(0);
+        for (KhuyenMai km : list) {
+            view.getModel().addRow(new Object[]{
+                km.getMaGiamGia(),
+                km.getCode(),
+                km.getTenSuKien(),
+                km.getGiamGia(),
+                (km.getLoaiGiam() == 1 ? "%" : "VNĐ"),
+                km.getSoLuong(),
+                km.getNgayBatDau(),
+                km.getNgayKetthuc(),
+                km.getTrangThai()
+            });
+        }
     }
 
+    private void xuatExcel() {
+        ExcelHelper.exportToExcel(view.getTblKhuyenMai(), view);
+    }
+
+    // ============================================================
+    // PHẦN 3: CÁC HÀM TIỆN ÍCH (HELPER METHODS)
+    // ============================================================
+
+    /**
+     * Reset Form về trạng thái ban đầu (Trắng trơn)
+     */
     private void clearForm() {
-        view.getTxtMaKM().setText("");
-        view.getTxtMaKM().setEditable(true);
-        view.getTxtTenKM().setText("");
+        view.getTxtCode().setText("");
+        view.getTxtTenSuKien().setText("");
         view.getTxtGiamGia().setText("");
+        view.getTxtSoLuong().setText("");
+        
+        // Reset ComboBox
+        view.getCboLoaiGiam().setSelectedIndex(0);
+        view.getCboTrangThai().setSelectedIndex(0);
+        
+        // Reset Ngày giờ về hiện tại
         view.getSpinNgayBatDau().setValue(new Date());
         view.getSpinNgayKetThuc().setValue(new Date());
+        
+        // Reset Tìm kiếm và Bảng
+        view.getTxtTimKiem().setText("");
+        view.getCboLocLoai().setSelectedIndex(0);
         view.getTblKhuyenMai().clearSelection();
+        view.getTxtCode().setEditable(true); // Mở khóa ô Code để nhập mới
+        
+        loadDataToTable(); // Tải lại toàn bộ dữ liệu gốc
+    }
+    
+    /**
+     * Validate dữ liệu nhập vào từ Form
+     * @return true nếu hợp lệ, false nếu có lỗi
+     */
+    private boolean validateForm() {
+        if (view.getTxtCode().getText().isEmpty()) {
+            JOptionPane.showMessageDialog(view, "Vui lòng nhập Mã Code!");
+            return false;
+        }
+        try {
+            Double.parseDouble(view.getTxtGiamGia().getText());
+            Integer.parseInt(view.getTxtSoLuong().getText());
+        } catch (NumberFormatException e) {
+            JOptionPane.showMessageDialog(view, "Lỗi: 'Giảm giá' và 'Số lượng' phải là số!");
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * Lấy dữ liệu từ các ô nhập liệu trên Form và đóng gói vào Object KhuyenMai
+     */
+    private KhuyenMai getModelFromView() {
+        KhuyenMai km = new KhuyenMai();
+        km.setCode(view.getTxtCode().getText().trim());
+        km.setTenSuKien(view.getTxtTenSuKien().getText().trim());
+        km.setGiamGia(Double.parseDouble(view.getTxtGiamGia().getText()));
+        km.setLoaiGiam(view.getCboLoaiGiam().getSelectedIndex());
+        km.setSoLuong(Integer.parseInt(view.getTxtSoLuong().getText()));
+        
+        // Ép kiểu từ Spinner sang Date
+        km.setNgayBatDau((Date) view.getSpinNgayBatDau().getValue());
+        km.setNgayKetthuc((Date) view.getSpinNgayKetThuc().getValue());
+        
+        km.setTrangThai(view.getCboTrangThai().getSelectedItem().toString());
+        return km;
+    }
+    
+    /**
+     * Đổ dữ liệu từ dòng được chọn trên Bảng ngược lại lên Form
+     */
+    private void fillFormFromTable() {
+        int row = view.getTblKhuyenMai().getSelectedRow();
+        if (row == -1) return;
+        
+        // Lấy dữ liệu từ bảng (Cẩn thận null)
+        Object code = view.getTblKhuyenMai().getValueAt(row, 1);
+        view.getTxtCode().setText(code != null ? code.toString() : "");
+        view.getTxtCode().setEditable(false); // Khóa ô Code không cho sửa
+        
+        Object ten = view.getTblKhuyenMai().getValueAt(row, 2);
+        view.getTxtTenSuKien().setText(ten != null ? ten.toString() : "");
+        
+        Object giamGia = view.getTblKhuyenMai().getValueAt(row, 3);
+        view.getTxtGiamGia().setText(giamGia != null ? giamGia.toString() : "0");
+        
+        // Xử lý loại giảm (% hay VNĐ)
+        String loai = view.getTblKhuyenMai().getValueAt(row, 4).toString();
+        view.getCboLoaiGiam().setSelectedIndex(loai.equals("%") ? 1 : 0);
+        
+        Object sl = view.getTblKhuyenMai().getValueAt(row, 5);
+        view.getTxtSoLuong().setText(sl != null ? sl.toString() : "0");
+        
+        // Xử lý ngày tháng (Cần try-catch vì ép kiểu Date có thể lỗi)
+        try {
+            Object ngayBD = view.getTblKhuyenMai().getValueAt(row, 6);
+            Object ngayKT = view.getTblKhuyenMai().getValueAt(row, 7);
+            if(ngayBD instanceof Date) view.getSpinNgayBatDau().setValue((Date) ngayBD);
+            if(ngayKT instanceof Date) view.getSpinNgayKetThuc().setValue((Date) ngayKT);
+        } catch (Exception e) {}
+        
+        view.getCboTrangThai().setSelectedItem(view.getTblKhuyenMai().getValueAt(row, 8).toString());
     }
 }
